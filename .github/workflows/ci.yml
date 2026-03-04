@@ -27,6 +27,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - uses: actions/setup-java@v4
         with:
@@ -34,9 +36,6 @@ jobs:
           java-version: 25
 
       - uses: dtolnay/rust-toolchain@stable
-
-      - name: Clone libsql-c
-        run: git clone --depth 1 https://github.com/tursodatabase/libsql-c.git
 
       - name: Build native library
         working-directory: libsql-c
@@ -52,7 +51,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build & test
-        run: ./gradlew build -x cloneLibsqlC -x buildLibsqlNative
+        run: ./gradlew build -x initSubmodules -x buildLibsqlNative
 
       - name: Upload native artifact
         uses: actions/upload-artifact@v4
@@ -67,6 +66,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - uses: actions/setup-java@v4
         with:
@@ -90,7 +91,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build JARs
-        run: ./gradlew jar sourcesJar javadocJar -x cloneLibsqlC -x buildLibsqlNative -x test
+        run: ./gradlew jar sourcesJar javadocJar -x initSubmodules -x buildLibsqlNative -x test
 
       - name: Upload JARs
         uses: actions/upload-artifact@v4
