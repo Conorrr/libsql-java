@@ -107,6 +107,18 @@ sourceSets {
     main {
         resources.srcDir(nativeResourceDir)
     }
+    create("bench") {
+        compileClasspath += sourceSets.main.get().output + sourceSets.main.get().compileClasspath
+        runtimeClasspath += sourceSets.main.get().output + sourceSets.main.get().runtimeClasspath
+    }
+}
+
+tasks.register<JavaExec>("bench") {
+    description = "Run performance benchmarks"
+    group = "verification"
+    classpath = sourceSets["bench"].runtimeClasspath
+    mainClass = "dev.libsql.LibSqlBench"
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
 
 // Ensure sourcesJar doesn't fail on missing native resources
