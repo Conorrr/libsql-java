@@ -1,84 +1,41 @@
 # libsql-java
 
+> **Pre-release** — early/experimental build. Not on Maven Central. Available via [GitHub Releases](https://github.com/conorrestall/libsql-java/releases) or build from source.
+
 Java FFM (Panama) bindings for [libsql-c](https://github.com/tursodatabase/libsql-c) — the C interface to [libSQL](https://github.com/tursodatabase/libsql).
 
 ## Requirements
 
-- Java 22+ (FFM API is GA since JDK 22)
+- Java 25 (FFM API, required by toolchain)
 - `--enable-native-access=ALL-UNNAMED` JVM flag
-- Native library for your platform (bundled in classifier JARs or built from source)
-
-## Installation
-
-### Gradle (Kotlin DSL)
-
-```kotlin
-dependencies {
-    implementation("dev.libsql:libsql-java:0.1.0")
-    // Platform-specific native library:
-    runtimeOnly("dev.libsql:libsql-java:0.1.0:natives-darwin-aarch64")
-}
-```
-
-### Maven
-
-```xml
-<dependency>
-    <groupId>dev.libsql</groupId>
-    <artifactId>libsql-java</artifactId>
-    <version>0.1.0</version>
-</dependency>
-<dependency>
-    <groupId>dev.libsql</groupId>
-    <artifactId>libsql-java</artifactId>
-    <version>0.1.0</version>
-    <classifier>natives-darwin-aarch64</classifier>
-    <scope>runtime</scope>
-</dependency>
-```
+- Rust stable toolchain (to build the native library from source)
 
 ## Quick Start
 
 ```java
-import dev.libsql.LibSql;
-import java.lang.foreign.Arena;
+import dev.libsql.*;
 
-// Initialize once
-LibSql.setup();
+try (var db = Database.open(":memory:");
+     var conn = db.connect()) {
 
-try (var arena = Arena.ofConfined()) {
-    // Open in-memory database
-    var db = LibSql.databaseInit(arena, ":memory:", null, null, 0);
-    var conn = LibSql.databaseConnect(db);
+    conn.batch("CREATE TABLE users(id INTEGER, name TEXT)");
 
-    // Create table and insert data
-    LibSql.connectionBatch(arena, conn, "CREATE TABLE users(id INTEGER, name TEXT)");
-
-    var stmt = LibSql.connectionPrepare(arena, conn, "INSERT INTO users VALUES (?, ?)");
-    LibSql.bindValue(stmt, LibSql.integer(1));
-    LibSql.bindValue(stmt, LibSql.text(arena, "Alice"));
-    LibSql.statementExecute(stmt);
-    LibSql.statementDeinit(stmt);
-
-    // Query
-    stmt = LibSql.connectionPrepare(arena, conn, "SELECT id, name FROM users");
-    var rows = LibSql.statementQuery(stmt);
-    var row = LibSql.rowsNext(rows);
-    while (!LibSql.rowEmpty(row)) {
-        Long id = (Long) LibSql.extractValue(LibSql.rowValue(row, 0));
-        String name = (String) LibSql.extractValue(LibSql.rowValue(row, 1));
-        System.out.println(id + ": " + name);
-        LibSql.rowDeinit(row);
-        row = LibSql.rowsNext(rows);
+    try (var stmt = conn.prepare("INSERT INTO users VALUES (?, ?)")) {
+        stmt.bind(1L).bind("Alice");
+        stmt.execute();
     }
-    LibSql.rowsDeinit(rows);
-    LibSql.statementDeinit(stmt);
 
-    // Cleanup
-    LibSql.connectionDeinit(conn);
-    LibSql.databaseDeinit(db);
+    try (var stmt = conn.prepare("SELECT id, name FROM users");
+         var rows = stmt.query()) {
+        for (var row : rows) {
+            System.out.println(row.getLong(0) + ": " + row.getString(1));
+            row.close();
+        }
+    }
 }
 ```
+
+No manual `setup()` call needed — initialization is automatic.
 
 ## Usage Guide
 
@@ -86,74 +43,155 @@ try (var arena = Arena.ofConfined()) {
 
 ```java
 // In-memory
-var db = LibSql.databaseInit(arena, ":memory:", null, null, 0);
+var db = Database.open(":memory:");
 
 // Local file
-var db = LibSql.databaseInit(arena, "/path/to/db.sqlite", null, null, 0);
+var db = Database.open("/path/to/db.sqlite");
 
 // Remote (Turso)
-var db = LibSql.databaseInit(arena, null, "libsql://your-db.turso.io", "your-auth-token", 0);
+var db = Database.openRemote("libsql://your-db.turso.io", "your-auth-token");
 
 // Synced replica (local + remote)
-var db = LibSql.databaseInit(arena, "/path/to/replica.db", "libsql://your-db.turso.io", "your-auth-token", 60);
-LibSql.databaseSync(db); // Pull latest from remote
+var db = Database.openSynced("/path/to/replica.db", "libsql://your-db.turso.io", "your-auth-token", 60);
+db.sync(); // pull latest from remote
 ```
 
 ### Prepared Statements
 
 ```java
 // Positional binding
-var stmt = LibSql.connectionPrepare(arena, conn, "INSERT INTO t VALUES (?, ?)");
-LibSql.bindValue(stmt, LibSql.integer(1));
-LibSql.bindValue(stmt, LibSql.text(arena, "hello"));
-long rowsChanged = LibSql.statementExecute(stmt);
+try (var stmt = conn.prepare("INSERT INTO t VALUES (?, ?)")) {
+    stmt.bind(1L).bind("hello");
+    long rowsChanged = stmt.execute();
+}
 
 // Named binding
-var stmt = LibSql.connectionPrepare(arena, conn, "INSERT INTO t VALUES (:id, :name)");
-LibSql.bindNamed(arena, stmt, ":id", LibSql.integer(1));
-LibSql.bindNamed(arena, stmt, ":name", LibSql.text(arena, "hello"));
+try (var stmt = conn.prepare("INSERT INTO t VALUES (:id, :name)")) {
+    stmt.bind(":id", 1L).bind(":name", "hello");
+    stmt.execute();
+}
 
 // Reset and re-execute
-LibSql.statementReset(stmt);
-LibSql.bindValue(stmt, LibSql.integer(2));
-LibSql.statementExecute(stmt);
+try (var stmt = conn.prepare("INSERT INTO t VALUES (?)")) {
+    stmt.bind(1L);
+    stmt.execute();
+    stmt.reset();
+    stmt.bind(2L);
+    stmt.execute();
+}
+```
+
+### Querying
+
+```java
+try (var stmt = conn.prepare("SELECT id, name, score FROM t");
+     var rows = stmt.query()) {
+
+    // Column metadata
+    int cols = rows.columnCount();
+    String name = rows.columnName(0);
+
+    // Iterate with typed getters
+    for (var row : rows) {
+        long id      = row.getLong(0);
+        String n     = row.getString(1);
+        double score = row.getDouble(2);
+        byte[] data  = row.getBlob(3);   // null if SQL NULL
+        boolean nil  = row.isNull(4);
+        row.close();
+    }
+}
 ```
 
 ### Transactions
 
+Uncommitted transactions auto-rollback on close:
+
 ```java
-var tx = LibSql.connectionTransaction(conn);
-try {
-    LibSql.transactionBatch(arena, tx, "INSERT INTO t VALUES (1)");
-    var stmt = LibSql.transactionPrepare(arena, tx, "INSERT INTO t VALUES (?)");
-    LibSql.bindValue(stmt, LibSql.integer(2));
-    LibSql.statementExecute(stmt);
-    LibSql.statementDeinit(stmt);
-    LibSql.transactionCommit(tx);
-} catch (Exception e) {
-    LibSql.transactionRollback(tx);
-    throw e;
+// Commit
+try (var tx = conn.transaction()) {
+    tx.batch("INSERT INTO t VALUES (1)");
+    try (var stmt = tx.prepare("INSERT INTO t VALUES (?)")) {
+        stmt.bind(2L);
+        stmt.execute();
+    }
+    tx.commit();
+}
+
+// Auto-rollback (no commit called)
+try (var tx = conn.transaction()) {
+    tx.batch("INSERT INTO t VALUES (1)");
+    // tx.close() rolls back automatically
 }
 ```
 
 ### Value Types
 
-| Method | Java Type | SQLite Type |
-|--------|-----------|-------------|
-| `LibSql.integer(long)` | `Long` | INTEGER |
-| `LibSql.real(double)` | `Double` | REAL |
-| `LibSql.text(arena, String)` | `String` | TEXT |
-| `LibSql.blob(arena, byte[])` | `byte[]` | BLOB |
-| `LibSql.nullValue()` | `null` | NULL |
+Positional `bind()` overloads:
 
-`extractValue()` returns the corresponding Java type (or `null`).
+- `bind(long)` → INTEGER
+- `bind(double)` → REAL
+- `bind(String)` → TEXT (null-safe: binds NULL if null)
+- `bind(byte[])` → BLOB (null-safe)
+- `bindNull()` → NULL
+
+Named `bind(name, ...)` overloads follow the same pattern.
 
 ### Batch Operations
 
 ```java
-LibSql.connectionBatch(arena, conn,
-    "CREATE TABLE t(v INTEGER); INSERT INTO t VALUES (1); INSERT INTO t VALUES (2)");
+conn.batch("CREATE TABLE t(v INTEGER); INSERT INTO t VALUES (1); INSERT INTO t VALUES (2)");
 ```
+
+## Examples
+
+See [`examples/`](examples/) for runnable programs:
+
+- [`InMemoryCrud.java`](examples/InMemoryCrud.java) — basic CRUD operations
+- [`LocalFileDatabase.java`](examples/LocalFileDatabase.java) — file-backed database
+- [`Transactions.java`](examples/Transactions.java) — commit, rollback, auto-rollback
+- [`ParameterBinding.java`](examples/ParameterBinding.java) — positional and named parameters
+- [`RemoteSynced.java`](examples/RemoteSynced.java) — Turso remote and synced replica
+
+## Low-Level API (Advanced)
+
+The `LibSql` class exposes raw FFM bindings as a low-level escape hatch. You manage `MemorySegment` handles, `Arena` lifetimes, and `deinit` calls manually. Prefer the high-level wrappers above unless you need direct control.
+
+```java
+LibSql.setup(); // idempotent, also called automatically
+
+try (var arena = Arena.ofConfined()) {
+    var db = LibSql.databaseInit(arena, ":memory:", null, null, 0);
+    var conn = LibSql.databaseConnect(db);
+    // ... use raw handles ...
+    LibSql.connectionDeinit(conn);
+    LibSql.databaseDeinit(db);
+}
+```
+
+## Benchmarks
+
+Run with `./gradlew bench`. Measures per-operation latency (p50/p90/p99/p99.9) for:
+
+- **INSERT**: 10,000 rows via prepared statement into an in-memory DB
+- **SELECT**: single-row query on a small table (comparison point: ~190 ns Rust/libsql baseline per Turso blog)
+
+Results printed to stdout. The benchmark runs outside the normal test cycle.
+
+## Why FFM (Panama) over JNI?
+
+- **No JNI glue code** — bindings are pure Java. No header files, `javah`, or `javac -h` step.
+- **Memory safety** — `MemorySegment` access is bounds-checked; no silent buffer overruns.
+- **Deterministic lifetimes** — `Arena` scopes memory allocation and reclaims it on close.
+- **Performance** — FFM downcalls have near-zero overhead for struct-passing calls; JNI adds frame push/pop and object pinning cost per call. See [benchmarks](#benchmarks) for concrete numbers.
+- **Maintainability** — struct layouts are declared in Java alongside the API; updating to a new libsql-c version is a single-file change.
+
+## libsql-c Compatibility
+
+This project tracks [tursodatabase/libsql-c](https://github.com/tursodatabase/libsql-c) as a git submodule.
+
+- **Pinned version**: `v0.3.4` (commit `02caaa2`)
+- **Support policy**: only the pinned tag is guaranteed to work. Tag bumps are explicit commits to this repo.
 
 ## GraalVM Native Image
 
@@ -183,23 +221,21 @@ Args = --features=dev.libsql.LibSqlNativeFeature --enable-native-access=ALL-UNNA
 | darwin-aarch64 (macOS ARM) | ✅ CI tested |
 | linux-amd64 (Linux x64) | ✅ CI tested |
 | windows-amd64 (Windows x64) | ✅ CI tested |
-| darwin-amd64 (macOS x64) | 🔨 Planned |
-| linux-aarch64 (Linux ARM) | 🔨 Planned |
-| linux-musl-amd64 | 🔨 Planned |
-| linux-musl-aarch64 | 🔨 Planned |
 
 ## Building from Source
 
 ### Prerequisites
 
-- JDK 22+
+- JDK 25
 - Rust stable toolchain (`rustup`)
 - Git
 
 ### Build
 
 ```bash
-# Clone, build native lib, compile Java, run tests
+# Clone with submodule, build native lib, compile Java, run tests
+git clone --recurse-submodules https://github.com/conorrestall/libsql-java.git
+cd libsql-java
 ./gradlew build
 
 # Build native lib only
@@ -207,9 +243,23 @@ Args = --features=dev.libsql.LibSqlNativeFeature --enable-native-access=ALL-UNNA
 
 # Run tests only (native lib must exist)
 ./gradlew test
+
+# Run benchmarks
+./gradlew bench
+
+# Clean native outputs
+./gradlew cleanNative
 ```
 
-The native library is built from [tursodatabase/libsql-c](https://github.com/tursodatabase/libsql-c) (cloned automatically) and placed in `native/{os}-{arch}/`.
+The native library is built from the pinned [libsql-c](https://github.com/tursodatabase/libsql-c) submodule (`v0.3.4`) and placed in `native/{os}-{arch}/`.
+
+## Installation
+
+This library is currently available via GitHub Releases or by building from source. Package publishing (Maven Central / GitHub Packages) is private/experimental for now.
+
+### From GitHub Releases
+
+Download the JAR and native library for your platform from the [releases page](https://github.com/conorrestall/libsql-java/releases), then add the JAR to your classpath and place the native library where it can be found (see `LibSqlLoader` for load paths).
 
 ## License
 
