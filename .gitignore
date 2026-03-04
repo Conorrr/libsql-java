@@ -12,7 +12,6 @@ build/
 .settings/
 
 # Native build artifacts
-libsql-c/
 native/
 
 # OS
