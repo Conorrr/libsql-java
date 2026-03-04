@@ -67,18 +67,21 @@ fun libName(): String {
     }
 }
 
-tasks.register<Exec>("cloneLibsqlC") {
-    description = "Clone libsql-c repo if not present"
-    onlyIf { !libsqlDir.asFile.exists() }
-    commandLine("git", "clone", "--depth", "1", "https://github.com/tursodatabase/libsql-c.git", libsqlDir.asFile.absolutePath)
+tasks.register<Exec>("initSubmodules") {
+    description = "Initialize and update git submodules"
+    onlyIf { !libsqlDir.dir(".git").asFile.exists() && !libsqlDir.file("Cargo.toml").asFile.exists() }
+    commandLine("git", "submodule", "update", "--init", "--recursive")
+}
+
+tasks.register<Delete>("cleanNative") {
+    description = "Remove native build outputs"
+    delete(nativeDir)
 }
 
 tasks.register<Exec>("buildLibsqlNative") {
     description = "Build liblibsql native library from source"
-    dependsOn("cloneLibsqlC")
+    dependsOn("initSubmodules")
     val platform = osArch()
-    val outputFile = nativeDir.dir(platform).file(libName())
-    onlyIf { !outputFile.asFile.exists() }
     workingDir(libsqlDir)
     commandLine("cargo", "build", "--release", "--features", "encryption")
     doLast {
