@@ -1,4 +1,4 @@
-import dev.libsql.*;
+import uk.co.rstl.libsql.*;
 
 /**
  * Demonstrates remote and synced replica database usage with Turso.

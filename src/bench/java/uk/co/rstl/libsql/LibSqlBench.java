@@ -1,4 +1,4 @@
-package dev.libsql;
+package uk.co.rstl.libsql;
 
 import java.util.Arrays;
 

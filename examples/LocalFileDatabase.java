@@ -1,4 +1,4 @@
-import dev.libsql.*;
+import uk.co.rstl.libsql.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

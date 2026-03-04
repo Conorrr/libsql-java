@@ -1,4 +1,4 @@
-package dev.libsql;
+package uk.co.rstl.libsql;
 
 public class LibSqlException extends RuntimeException {
     public LibSqlException(String message) {

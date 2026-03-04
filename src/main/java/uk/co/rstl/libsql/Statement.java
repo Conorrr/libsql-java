@@ -1,4 +1,4 @@
-package dev.libsql;
+package uk.co.rstl.libsql;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;

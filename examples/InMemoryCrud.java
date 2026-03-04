@@ -1,4 +1,4 @@
-import dev.libsql.*;
+import uk.co.rstl.libsql.*;
 
 /**
  * Demonstrates basic CRUD operations with an in-memory database.

@@ -1,4 +1,4 @@
-package dev.libsql;
+package uk.co.rstl.libsql;
 
 import org.graalvm.nativeimage.hosted.Feature;
 import org.graalvm.nativeimage.hosted.RuntimeForeignAccess;

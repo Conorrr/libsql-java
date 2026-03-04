@@ -1,4 +1,4 @@
-import dev.libsql.*;
+import uk.co.rstl.libsql.*;
 
 /**
  * Demonstrates transaction commit, rollback, and auto-rollback-on-close behavior.

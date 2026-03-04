@@ -13,7 +13,7 @@ Java FFM (Panama) bindings for [libsql-c](https://github.com/tursodatabase/libsq
 ## Quick Start
 
 ```java
-import dev.libsql.*;
+import uk.co.rstl.libsql.*;
 
 try (var db = Database.open(":memory:");
      var conn = db.connect()) {
@@ -202,14 +202,14 @@ This project tracks [tursodatabase/libsql-c](https://github.com/tursodatabase/li
 Add to your native-image config:
 
 ```
---features=dev.libsql.LibSqlNativeFeature
+--features=uk.co.rstl.libsql.LibSqlNativeFeature
 --enable-native-access=ALL-UNNAMED
 ```
 
 Or register via `META-INF/native-image/native-image.properties`:
 
 ```properties
-Args = --features=dev.libsql.LibSqlNativeFeature --enable-native-access=ALL-UNNAMED
+Args = --features=uk.co.rstl.libsql.LibSqlNativeFeature --enable-native-access=ALL-UNNAMED
 ```
 
 **Important**: The native library (`.dylib`/`.so`/`.dll`) must be co-located with the binary at runtime — it cannot be loaded from inside the JAR in native-image mode.

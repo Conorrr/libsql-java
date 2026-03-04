@@ -4,7 +4,7 @@ plugins {
     signing
 }
 
-group = "dev.libsql"
+group = "uk.co.rstl"
 version = "0.1.0-SNAPSHOT"
 
 repositories {
@@ -83,6 +83,8 @@ tasks.register<Exec>("buildLibsqlNative") {
     dependsOn("initSubmodules")
     val platform = osArch()
     workingDir(libsqlDir)
+    val home = System.getenv("HOME") ?: System.getProperty("user.home")
+    environment("PATH", "$home/.cargo/bin:${System.getenv("PATH")}")
     commandLine("cargo", "build", "--release", "--features", "encryption")
     doLast {
         val targetLib = libsqlDir.dir("target/release").file(libName()).asFile
@@ -117,7 +119,7 @@ tasks.register<JavaExec>("bench") {
     description = "Run performance benchmarks"
     group = "verification"
     classpath = sourceSets["bench"].runtimeClasspath
-    mainClass = "dev.libsql.LibSqlBench"
+    mainClass = "uk.co.rstl.libsql.LibSqlBench"
     jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
 

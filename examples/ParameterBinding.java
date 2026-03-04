@@ -1,4 +1,4 @@
-import dev.libsql.*;
+import uk.co.rstl.libsql.*;
 
 /**
  * Demonstrates positional (?) and named (:param) parameter binding.
