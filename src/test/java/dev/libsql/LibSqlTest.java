@@ -16,10 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class LibSqlTest {
 
-    @BeforeAll
-    static void init() {
-        LibSql.setup();
-    }
+    // setup() is automatic — no @BeforeAll needed
 
     // --- Lifecycle ---
 
