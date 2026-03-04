@@ -2,6 +2,7 @@ package dev.libsql;
 
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.lang.foreign.ValueLayout.*;
 
@@ -247,22 +248,33 @@ public final class LibSql {
     public static final int TYPE_BLOB = 4;
     public static final int TYPE_NULL = 5;
 
+    private static final AtomicBoolean INITIALIZED = new AtomicBoolean(false);
+
     private LibSql() {}
+
+    // Auto-initialize on first class load
+    static {
+        setup();
+    }
 
     // --- Public API ---
 
+    /** Initialize the native library. Safe to call multiple times (idempotent). */
     public static void setup() {
+        if (!INITIALIZED.compareAndSet(false, true)) return;
         try {
             var config = Arena.ofAuto().allocate(CONFIG_LAYOUT);
             config.set(ADDRESS, CONFIG_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("logger")), MemorySegment.NULL);
             config.set(ADDRESS, CONFIG_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("version")), MemorySegment.NULL);
             var err = (MemorySegment) SETUP.invokeExact(config);
             if (!err.equals(MemorySegment.NULL)) {
+                INITIALIZED.set(false);
                 throw new LibSqlException(readErrorMessage(err));
             }
         } catch (LibSqlException e) {
             throw e;
         } catch (Throwable t) {
+            INITIALIZED.set(false);
             throw new RuntimeException("libsql_setup failed", t);
         }
     }
