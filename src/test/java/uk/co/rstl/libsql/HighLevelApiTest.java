@@ -311,7 +311,9 @@ class HighLevelApiTest {
                 assertEquals(-2000L, rows.next().getLong(0));
             }
         } finally {
-            Files.deleteIfExists(tmpDb);
+            tmpDb.toFile().deleteOnExit();
+            tmpDb.resolveSibling(tmpDb.getFileName() + "-wal").toFile().deleteOnExit();
+            tmpDb.resolveSibling(tmpDb.getFileName() + "-shm").toFile().deleteOnExit();
         }
     }
 
