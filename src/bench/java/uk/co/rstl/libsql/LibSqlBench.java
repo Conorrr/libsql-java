@@ -1,5 +1,8 @@
 package uk.co.rstl.libsql;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 
 /**
@@ -16,20 +19,34 @@ public class LibSqlBench {
     private static final int INSERT_COUNT = 10_000;
     private static final int SELECT_WARMUP = 1_000;
     private static final int SELECT_ITERATIONS = 10_000;
+    private static final Path BENCH_DB = Path.of("bench.db");
 
     public static void main(String[] args) {
         System.out.println("libsql-java benchmark");
         System.out.println("=====================\n");
 
-        benchInsert();
-        System.out.println();
-        benchSelect();
+        try {
+            benchInsert();
+            System.out.println();
+            benchSelect();
+        } finally {
+            cleanup();
+        }
+    }
+
+    private static void cleanup() {
+        try {
+            Files.deleteIfExists(BENCH_DB);
+            Files.deleteIfExists(Path.of(BENCH_DB + "-wal"));
+            Files.deleteIfExists(Path.of(BENCH_DB + "-shm"));
+        } catch (IOException ignored) {}
     }
 
     private static void benchInsert() {
         long[] latencies = new long[INSERT_COUNT];
 
-        try (var db = Database.open(":memory:");
+        cleanup();
+        try (var db = Database.builder(BENCH_DB.toString()).journalMode("WAL").build();
              var conn = db.connect()) {
             conn.batch("CREATE TABLE bench(id INTEGER PRIMARY KEY, value TEXT)");
 
@@ -51,7 +68,8 @@ public class LibSqlBench {
     private static void benchSelect() {
         long[] latencies = new long[SELECT_ITERATIONS];
 
-        try (var db = Database.open(":memory:");
+        cleanup();
+        try (var db = Database.builder(BENCH_DB.toString()).journalMode("WAL").build();
              var conn = db.connect()) {
             conn.batch("CREATE TABLE bench(id INTEGER PRIMARY KEY, name TEXT, score REAL)");
             conn.batch("INSERT INTO bench VALUES (1, 'Alice', 95.5), (2, 'Bob', 87.3), (3, 'Carol', 92.1)");
@@ -68,16 +86,17 @@ public class LibSqlBench {
             }
 
             // Measured
-            for (int i = 0; i < SELECT_ITERATIONS; i++) {
-                long start = System.nanoTime();
-                try (var stmt = conn.prepare("SELECT id, name, score FROM bench WHERE id = ?")) {
+            try (var stmt = conn.prepare("SELECT id, name, score FROM bench WHERE id = ?")) {
+                for (int i = 0; i < SELECT_ITERATIONS; i++) {
+                    long start = System.nanoTime();
                     stmt.bind(1L);
                     try (var rows = stmt.query()) {
                         var row = rows.next();
                         if (row != null) row.close();
                     }
+                    latencies[i] = System.nanoTime() - start;
+                    stmt.reset();
                 }
-                latencies[i] = System.nanoTime() - start;
             }
         }
 
