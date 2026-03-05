@@ -47,8 +47,13 @@ public final class Transaction implements AutoCloseable {
     public Statement prepare(String sql) {
         checkActive();
         var arena = Arena.ofConfined();
-        var stmt = LibSql.transactionPrepare(arena, handle, sql);
-        return new Statement(arena, stmt);
+        try {
+            var stmt = LibSql.transactionPrepare(arena, handle, sql);
+            return new Statement(arena, stmt);
+        } catch (Throwable t) {
+            arena.close();
+            throw t;
+        }
     }
 
     /** Commit the transaction. */

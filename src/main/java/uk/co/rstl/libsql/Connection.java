@@ -48,8 +48,13 @@ public final class Connection implements AutoCloseable {
     public Statement prepare(String sql) {
         checkOpen();
         var arena = Arena.ofConfined();
-        var stmt = LibSql.connectionPrepare(arena, handle, sql);
-        return new Statement(arena, stmt);
+        try {
+            var stmt = LibSql.connectionPrepare(arena, handle, sql);
+            return new Statement(arena, stmt);
+        } catch (Throwable t) {
+            arena.close();
+            throw t;
+        }
     }
 
     /** Begin a transaction. Caller must close the returned Transaction. */

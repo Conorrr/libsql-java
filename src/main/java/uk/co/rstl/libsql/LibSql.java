@@ -321,7 +321,7 @@ public final class LibSql {
             var result = (MemorySegment) DATABASE_SYNC.invokeExact((SegmentAllocator) Arena.ofAuto(), db);
             var errPtr = result.get(ADDRESS, SYNC_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("err")));
             if (!errPtr.equals(MemorySegment.NULL)) {
-                throw new LibSqlException(readErrorMessage(errPtr));
+                throw new LibSqlException(readAndFreeError(errPtr));
             }
         } catch (LibSqlException e) {
             throw e;
@@ -409,7 +409,7 @@ public final class LibSql {
             var result = (MemorySegment) STATEMENT_EXECUTE.invokeExact((SegmentAllocator) Arena.ofAuto(), stmt);
             var errPtr = result.get(ADDRESS, EXECUTE_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("err")));
             if (!errPtr.equals(MemorySegment.NULL)) {
-                throw new LibSqlException(readErrorMessage(errPtr));
+                throw new LibSqlException(readAndFreeError(errPtr));
             }
             return result.get(JAVA_LONG, EXECUTE_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("rows_changed")));
         } catch (LibSqlException e) {
@@ -538,7 +538,7 @@ public final class LibSql {
     public static String rowsColumnName(MemorySegment rows, int index) {
         try {
             var slice = (MemorySegment) ROWS_COLUMN_NAME.invokeExact((SegmentAllocator) Arena.ofAuto(), rows, index);
-            return readSlice(slice);
+            return readAndFreeSlice(slice);
         } catch (Throwable t) {
             throw new RuntimeException(t);
         }
@@ -561,7 +561,7 @@ public final class LibSql {
             var result = (MemorySegment) ROW_VALUE.invokeExact((SegmentAllocator) Arena.ofAuto(), row, index);
             var errPtr = result.get(ADDRESS, RESULT_VALUE_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("err")));
             if (!errPtr.equals(MemorySegment.NULL)) {
-                throw new LibSqlException(readErrorMessage(errPtr));
+                throw new LibSqlException(readAndFreeError(errPtr));
             }
             return result;
         } catch (LibSqlException e) {
@@ -646,14 +646,25 @@ public final class LibSql {
     private static void checkHandle(MemorySegment handleResult) {
         var errPtr = handleResult.get(ADDRESS, HANDLE_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("err")));
         if (!errPtr.equals(MemorySegment.NULL)) {
-            throw new LibSqlException(readErrorMessage(errPtr));
+            throw new LibSqlException(readAndFreeError(errPtr));
         }
     }
 
     private static void checkErrOnly(MemorySegment errResult) {
         var errPtr = errResult.get(ADDRESS, ERR_ONLY_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("err")));
         if (!errPtr.equals(MemorySegment.NULL)) {
-            throw new LibSqlException(readErrorMessage(errPtr));
+            throw new LibSqlException(readAndFreeError(errPtr));
+        }
+    }
+
+    /** Read the error message and free the error struct. */
+    private static String readAndFreeError(MemorySegment errPtr) {
+        try {
+            var msg = readErrorMessage(errPtr);
+            errorDeinit(errPtr);
+            return msg;
+        } catch (Throwable t) {
+            return "Failed to read error message: " + t.getMessage();
         }
     }
 
@@ -667,10 +678,21 @@ public final class LibSql {
         }
     }
 
-    private static String readSlice(MemorySegment slice) {
+    private static void errorDeinit(MemorySegment errPtr) {
+        try { ERROR_DEINIT.invokeExact(errPtr); } catch (Throwable t) { throw new RuntimeException(t); }
+    }
+
+    /** Read slice data and free the slice. */
+    private static String readAndFreeSlice(MemorySegment slice) {
         var ptr = slice.get(ADDRESS, SLICE_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("ptr")));
         long len = slice.get(JAVA_LONG, SLICE_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("len")));
-        if (ptr.equals(MemorySegment.NULL) || len == 0) return "";
-        return ptr.reinterpret(len).getString(0);
+        String result;
+        if (ptr.equals(MemorySegment.NULL) || len == 0) {
+            result = "";
+        } else {
+            result = ptr.reinterpret(len).getString(0);
+        }
+        sliceDeinit(slice);
+        return result;
     }
 }

@@ -58,6 +58,7 @@ public final class Rows implements AutoCloseable, Iterable<Row> {
     public Iterator<Row> iterator() {
         return new Iterator<>() {
             private Row pending;
+            private Row previous;
             private boolean done;
 
             @Override
@@ -76,9 +77,10 @@ public final class Rows implements AutoCloseable, Iterable<Row> {
             @Override
             public Row next() {
                 if (!hasNext()) throw new java.util.NoSuchElementException();
-                var current = pending;
+                if (previous != null) previous.close();
+                previous = pending;
                 pending = null;
-                return current;
+                return previous;
             }
         };
     }

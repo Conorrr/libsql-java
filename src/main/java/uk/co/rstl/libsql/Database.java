@@ -152,8 +152,13 @@ public final class Database implements AutoCloseable {
         /** Build and open the database. */
         public Database build() {
             var arena = Arena.ofConfined();
-            var handle = LibSql.databaseInit(arena, path, url, authToken, syncInterval);
-            return new Database(arena, handle, Collections.unmodifiableList(new ArrayList<>(pragmas)));
+            try {
+                var handle = LibSql.databaseInit(arena, path, url, authToken, syncInterval);
+                return new Database(arena, handle, Collections.unmodifiableList(new ArrayList<>(pragmas)));
+            } catch (Throwable t) {
+                arena.close();
+                throw t;
+            }
         }
     }
 }
