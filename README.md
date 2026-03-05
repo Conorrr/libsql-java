@@ -181,6 +181,24 @@ See [`examples/`](examples/) for runnable programs:
 - [`ParameterBinding.java`](examples/ParameterBinding.java) — positional and named parameters
 - [`RemoteSynced.java`](examples/RemoteSynced.java) — Turso remote and synced replica
 
+## Resource Leak Detection
+
+All native resource wrappers (`Database`, `Connection`, `Statement`, `Transaction`, `Rows`) are registered with a `java.lang.ref.Cleaner` that acts as a safety net. If a resource is garbage-collected without being explicitly closed, the cleaner frees the native handle and logs a warning:
+
+```
+WARN libsql-java: Connection was not closed explicitly and was cleaned up by GC. Use try-with-resources to avoid native memory leaks.
+```
+
+Logging uses SLF4J if it's on the classpath, otherwise falls back to `java.util.logging`.
+
+**This is a safety net, not a substitute for `close()`.** GC timing is unpredictable, so native resources may linger much longer than expected. Always use try-with-resources.
+
+To disable the cleaner (e.g. for maximum throughput when you guarantee all resources are closed):
+
+```
+java -Dlibsql.disableCleaner=true ...
+```
+
 ## Low-Level API (Advanced)
 
 The `LibSql` class exposes raw FFM bindings as a low-level escape hatch. You manage `MemorySegment` handles, `Arena` lifetimes, and `deinit` calls manually. Prefer the high-level wrappers above unless you need direct control.

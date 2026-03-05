@@ -2,6 +2,7 @@ package uk.co.rstl.libsql;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.ref.Cleaner;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -17,12 +18,31 @@ public final class Database implements AutoCloseable {
     private final Arena arena;
     private final MemorySegment handle;
     private final List<String> pragmas;
+    private final CleanAction cleanAction;
+    private final Cleaner.Cleanable cleanable;
     private boolean closed;
 
     private Database(Arena arena, MemorySegment handle, List<String> pragmas) {
         this.arena = arena;
         this.handle = handle;
         this.pragmas = pragmas;
+        this.cleanAction = new CleanAction(handle, arena);
+        this.cleanable = LibSql.CLEANER != null
+                ? LibSql.CLEANER.register(this, cleanAction)
+                : null;
+    }
+
+    private static class CleanAction implements Runnable {
+        private final MemorySegment handle;
+        private final Arena arena;
+        volatile boolean disarmed;
+        CleanAction(MemorySegment handle, Arena arena) { this.handle = handle; this.arena = arena; }
+        @Override public void run() {
+            if (disarmed) return;
+            ResourceCleaner.warn("Database");
+            LibSql.databaseDeinit(handle);
+            arena.close();
+        }
     }
 
     /** Open a local or in-memory database (use ":memory:" for in-memory). Shorthand for {@code builder(path).build()}. */
@@ -79,6 +99,8 @@ public final class Database implements AutoCloseable {
     public void close() {
         if (!closed) {
             closed = true;
+            cleanAction.disarmed = true;
+            if (cleanable != null) cleanable.clean();
             LibSql.databaseDeinit(handle);
             arena.close();
         }

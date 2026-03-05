@@ -2,6 +2,7 @@ package uk.co.rstl.libsql;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.ref.Cleaner;
 
 /**
  * AutoCloseable wrapper around a libsql prepared statement.
@@ -11,11 +12,30 @@ public final class Statement implements AutoCloseable {
 
     private final Arena arena;
     private final MemorySegment handle;
+    private final CleanAction cleanAction;
+    private final Cleaner.Cleanable cleanable;
     private boolean closed;
 
     Statement(Arena arena, MemorySegment handle) {
         this.arena = arena;
         this.handle = handle;
+        this.cleanAction = new CleanAction(handle, arena);
+        this.cleanable = LibSql.CLEANER != null
+                ? LibSql.CLEANER.register(this, cleanAction)
+                : null;
+    }
+
+    private static class CleanAction implements Runnable {
+        private final MemorySegment handle;
+        private final Arena arena;
+        volatile boolean disarmed;
+        CleanAction(MemorySegment handle, Arena arena) { this.handle = handle; this.arena = arena; }
+        @Override public void run() {
+            if (disarmed) return;
+            ResourceCleaner.warn("Statement");
+            LibSql.statementDeinit(handle);
+            arena.close();
+        }
     }
 
     // --- Positional binding ---
@@ -126,6 +146,8 @@ public final class Statement implements AutoCloseable {
     public void close() {
         if (!closed) {
             closed = true;
+            cleanAction.disarmed = true;
+            if (cleanable != null) cleanable.clean();
             LibSql.statementDeinit(handle);
             arena.close();
         }

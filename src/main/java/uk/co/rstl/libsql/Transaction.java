@@ -2,6 +2,7 @@ package uk.co.rstl.libsql;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.ref.Cleaner;
 
 /**
  * AutoCloseable wrapper around a libsql transaction handle.
@@ -11,10 +12,27 @@ import java.lang.foreign.MemorySegment;
 public final class Transaction implements AutoCloseable {
 
     private final MemorySegment handle;
+    private final CleanAction cleanAction;
+    private final Cleaner.Cleanable cleanable;
     private boolean finished;
 
     Transaction(MemorySegment handle) {
         this.handle = handle;
+        this.cleanAction = new CleanAction(handle);
+        this.cleanable = LibSql.CLEANER != null
+                ? LibSql.CLEANER.register(this, cleanAction)
+                : null;
+    }
+
+    private static class CleanAction implements Runnable {
+        private final MemorySegment handle;
+        volatile boolean disarmed;
+        CleanAction(MemorySegment handle) { this.handle = handle; }
+        @Override public void run() {
+            if (disarmed) return;
+            ResourceCleaner.warn("Transaction");
+            LibSql.transactionRollback(handle);
+        }
     }
 
     /** Execute one or more SQL statements as a batch within this transaction. */
@@ -37,6 +55,8 @@ public final class Transaction implements AutoCloseable {
     public void commit() {
         checkActive();
         finished = true;
+        cleanAction.disarmed = true;
+        if (cleanable != null) cleanable.clean();
         LibSql.transactionCommit(handle);
     }
 
@@ -44,6 +64,8 @@ public final class Transaction implements AutoCloseable {
     public void rollback() {
         checkActive();
         finished = true;
+        cleanAction.disarmed = true;
+        if (cleanable != null) cleanable.clean();
         LibSql.transactionRollback(handle);
     }
 
@@ -56,6 +78,8 @@ public final class Transaction implements AutoCloseable {
     public void close() {
         if (!finished) {
             finished = true;
+            cleanAction.disarmed = true;
+            if (cleanable != null) cleanable.clean();
             LibSql.transactionRollback(handle);
         }
     }

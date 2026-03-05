@@ -2,6 +2,7 @@ package uk.co.rstl.libsql;
 
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
+import java.lang.ref.Cleaner;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.lang.foreign.ValueLayout.*;
@@ -249,6 +250,14 @@ public final class LibSql {
     public static final int TYPE_NULL = 5;
 
     private static final AtomicBoolean INITIALIZED = new AtomicBoolean(false);
+
+    /** Shared cleaner for leak detection. Null if disabled via {@code -Dlibsql.disableCleaner=true}. */
+    static final Cleaner CLEANER;
+
+    static {
+        boolean enabled = !Boolean.getBoolean("libsql.disableCleaner");
+        CLEANER = enabled ? Cleaner.create() : null;
+    }
 
     private LibSql() {}
 

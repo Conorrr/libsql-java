@@ -1,6 +1,7 @@
 package uk.co.rstl.libsql;
 
 import java.lang.foreign.MemorySegment;
+import java.lang.ref.Cleaner;
 import java.util.Iterator;
 
 /**
@@ -10,10 +11,27 @@ import java.util.Iterator;
 public final class Rows implements AutoCloseable, Iterable<Row> {
 
     private final MemorySegment handle;
+    private final CleanAction cleanAction;
+    private final Cleaner.Cleanable cleanable;
     private boolean closed;
 
     Rows(MemorySegment handle) {
         this.handle = handle;
+        this.cleanAction = new CleanAction(handle);
+        this.cleanable = LibSql.CLEANER != null
+                ? LibSql.CLEANER.register(this, cleanAction)
+                : null;
+    }
+
+    private static class CleanAction implements Runnable {
+        private final MemorySegment handle;
+        volatile boolean disarmed;
+        CleanAction(MemorySegment handle) { this.handle = handle; }
+        @Override public void run() {
+            if (disarmed) return;
+            ResourceCleaner.warn("Rows");
+            LibSql.rowsDeinit(handle);
+        }
     }
 
     /** Column count for this result set. */
@@ -73,6 +91,8 @@ public final class Rows implements AutoCloseable, Iterable<Row> {
     public void close() {
         if (!closed) {
             closed = true;
+            cleanAction.disarmed = true;
+            if (cleanable != null) cleanable.clean();
             LibSql.rowsDeinit(handle);
         }
     }
