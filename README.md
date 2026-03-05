@@ -1,6 +1,6 @@
 # libsql-java
 
-> **Pre-release** — early/experimental build. Not on Maven Central. Available via [GitHub Releases](https://github.com/conorrestall/libsql-java/releases) or build from source.
+> **Pre-release** — early/experimental build. Not on Maven Central. Available via [GitHub Releases](https://github.com/Conorrr/libsql-java/releases) or build from source.
 
 Java FFM (Panama) bindings for [libsql-c](https://github.com/tursodatabase/libsql-c) — the C interface to [libSQL](https://github.com/tursodatabase/libsql).
 
@@ -15,7 +15,10 @@ Java FFM (Panama) bindings for [libsql-c](https://github.com/tursodatabase/libsq
 ```java
 import uk.co.rstl.libsql.*;
 
-try (var db = Database.open(":memory:");
+try (var db = Database.builder(":memory:")
+        .foreignKeys(true)
+        .busyTimeout(5000)
+        .build();
      var conn = db.connect()) {
 
     conn.batch("CREATE TABLE users(id INTEGER, name TEXT)");
@@ -41,19 +44,44 @@ No manual `setup()` call needed — initialization is automatic.
 
 ### Opening Databases
 
+Use `Database.builder()` to configure PRAGMAs and open a database:
+
 ```java
 // In-memory
-var db = Database.open(":memory:");
+var db = Database.builder(":memory:")
+        .foreignKeys(true)
+        .busyTimeout(5000)
+        .build();
 
 // Local file
-var db = Database.open("/path/to/db.sqlite");
+var db = Database.builder("/path/to/db.sqlite")
+        .journalMode("WAL")
+        .foreignKeys(true)
+        .build();
 
 // Remote (Turso)
-var db = Database.openRemote("libsql://your-db.turso.io", "your-auth-token");
+var db = Database.builder()
+        .url("libsql://your-db.turso.io")
+        .authToken("your-auth-token")
+        .build();
 
 // Synced replica (local + remote)
-var db = Database.openSynced("/path/to/replica.db", "libsql://your-db.turso.io", "your-auth-token", 60);
+var db = Database.builder("/path/to/replica.db")
+        .url("libsql://your-db.turso.io")
+        .authToken("your-auth-token")
+        .syncInterval(60)
+        .build();
 db.sync(); // pull latest from remote
+```
+
+PRAGMAs are auto-applied to every connection created via `db.connect()`.
+
+Shorthand methods without PRAGMAs are still available:
+
+```java
+var db = Database.open(":memory:");
+var db = Database.openRemote(url, token);
+var db = Database.openSynced(path, url, token, syncInterval);
 ```
 
 ### Prepared Statements
@@ -234,7 +262,7 @@ Args = --features=uk.co.rstl.libsql.LibSqlNativeFeature --enable-native-access=A
 
 ```bash
 # Clone with submodule, build native lib, compile Java, run tests
-git clone --recurse-submodules https://github.com/conorrestall/libsql-java.git
+git clone --recurse-submodules https://github.com/Conorrr/libsql-java.git
 cd libsql-java
 ./gradlew build
 
@@ -255,11 +283,48 @@ The native library is built from the pinned [libsql-c](https://github.com/tursod
 
 ## Installation
 
-This library is currently available via GitHub Releases or by building from source. Package publishing (Maven Central / GitHub Packages) is private/experimental for now.
+Published to [GitHub Packages](https://github.com/Conorrr/libsql-java/packages). Also available as JARs from [GitHub Releases](https://github.com/Conorrr/libsql-java/releases).
 
-### From GitHub Releases
+### Gradle (Kotlin DSL)
 
-Download the JAR and native library for your platform from the [releases page](https://github.com/conorrestall/libsql-java/releases), then add the JAR to your classpath and place the native library where it can be found (see `LibSqlLoader` for load paths).
+```kotlin
+repositories {
+    maven { url = uri("https://maven.pkg.github.com/Conorrr/libsql-java") }
+}
+
+dependencies {
+    implementation("io.github.conorrr:libsql-java:0.2.0")
+}
+```
+
+### Gradle (Groovy DSL)
+
+```groovy
+repositories {
+    maven { url 'https://maven.pkg.github.com/Conorrr/libsql-java' }
+}
+
+dependencies {
+    implementation 'io.github.conorrr:libsql-java:0.2.0'
+}
+```
+
+### Maven
+
+```xml
+<repositories>
+    <repository>
+        <id>github</id>
+        <url>https://maven.pkg.github.com/Conorrr/libsql-java</url>
+    </repository>
+</repositories>
+
+<dependency>
+    <groupId>io.github.conorrr</groupId>
+    <artifactId>libsql-java</artifactId>
+    <version>0.2.0</version>
+</dependency>
+```
 
 ## License
 

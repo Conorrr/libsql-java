@@ -3,11 +3,14 @@ import uk.co.rstl.libsql.*;
 /**
  * Demonstrates basic CRUD operations with an in-memory database.
  *
- * Run: java --enable-native-access=ALL-UNNAMED -cp build/libs/libsql-java-0.1.0-SNAPSHOT.jar examples/InMemoryCrud.java
+ * Run: java --enable-native-access=ALL-UNNAMED -cp build/libs/libsql-java.jar examples/InMemoryCrud.java
  */
 public class InMemoryCrud {
     public static void main(String[] args) {
-        try (var db = Database.open(":memory:");
+        try (var db = Database.builder(":memory:")
+                .foreignKeys(true)
+                .busyTimeout(5000)
+                .build();
              var conn = db.connect()) {
 
             // Create

@@ -21,7 +21,12 @@ public class RemoteSynced {
 
         // --- Remote-only connection ---
         System.out.println("=== Remote database ===");
-        try (var db = Database.openRemote(url, token);
+        try (var db = Database.builder()
+                .url(url)
+                .authToken(token)
+                .foreignKeys(true)
+                .busyTimeout(5000)
+                .build();
              var conn = db.connect()) {
             conn.batch("CREATE TABLE IF NOT EXISTS greetings(msg TEXT)");
             try (var stmt = conn.prepare("INSERT INTO greetings VALUES (?)")) {
@@ -39,7 +44,13 @@ public class RemoteSynced {
 
         // --- Synced replica (local file + remote) ---
         System.out.println("\n=== Synced replica ===");
-        try (var db = Database.openSynced("/tmp/replica.db", url, token, 60)) {
+        try (var db = Database.builder("/tmp/replica.db")
+                .url(url)
+                .authToken(token)
+                .syncInterval(60)
+                .foreignKeys(true)
+                .busyTimeout(5000)
+                .build()) {
             db.sync(); // pull latest from remote
             try (var conn = db.connect();
                  var stmt = conn.prepare("SELECT COUNT(*) FROM greetings");

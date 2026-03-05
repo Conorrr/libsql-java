@@ -5,7 +5,10 @@ import uk.co.rstl.libsql.*;
  */
 public class Transactions {
     public static void main(String[] args) {
-        try (var db = Database.open(":memory:");
+        try (var db = Database.builder(":memory:")
+                .foreignKeys(true)
+                .busyTimeout(5000)
+                .build();
              var conn = db.connect()) {
 
             conn.batch("CREATE TABLE accounts(name TEXT, balance INTEGER)");

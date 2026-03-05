@@ -4,7 +4,7 @@ plugins {
     signing
 }
 
-group = "uk.co.rstl"
+group = "io.github.conorrr"
 version = findProperty("releaseVersion")?.toString() ?: "0.1.0-SNAPSHOT"
 
 repositories {
@@ -137,7 +137,7 @@ publishing {
             pom {
                 name = "libsql-java"
                 description = "Java FFM (Panama) bindings for libsql-c"
-                url = "https://github.com/conorrestall/libsql-java"
+                url = "https://github.com/Conorrr/libsql-java"
                 licenses {
                     license {
                         name = "MIT License"
@@ -146,14 +146,14 @@ publishing {
                 }
                 developers {
                     developer {
-                        id = "conorrestall"
+                        id = "Conorrr"
                         name = "Conor Restall"
                     }
                 }
                 scm {
-                    connection = "scm:git:git://github.com/conorrestall/libsql-java.git"
-                    developerConnection = "scm:git:ssh://github.com/conorrestall/libsql-java.git"
-                    url = "https://github.com/conorrestall/libsql-java"
+                    connection = "scm:git:git://github.com/Conorrr/libsql-java.git"
+                    developerConnection = "scm:git:ssh://github.com/Conorrr/libsql-java.git"
+                    url = "https://github.com/Conorrr/libsql-java"
                 }
             }
         }
@@ -161,7 +161,7 @@ publishing {
     repositories {
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/conorrestall/libsql-java")
+            url = uri("https://maven.pkg.github.com/Conorrr/libsql-java")
             credentials {
                 username = System.getenv("GITHUB_ACTOR")
                 password = System.getenv("GITHUB_TOKEN")

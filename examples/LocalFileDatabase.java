@@ -11,7 +11,11 @@ public class LocalFileDatabase {
         var dbPath = Files.createTempFile("libsql-example-", ".db");
         try {
             // Write data
-            try (var db = Database.open(dbPath.toString());
+            try (var db = Database.builder(dbPath.toString())
+                    .journalMode("WAL")
+                    .foreignKeys(true)
+                    .busyTimeout(5000)
+                    .build();
                  var conn = db.connect()) {
                 conn.batch("CREATE TABLE notes(id INTEGER PRIMARY KEY, content TEXT, created_at TEXT)");
 
@@ -26,7 +30,10 @@ public class LocalFileDatabase {
             }
 
             // Re-open and read back
-            try (var db = Database.open(dbPath.toString());
+            try (var db = Database.builder(dbPath.toString())
+                    .journalMode("WAL")
+                    .busyTimeout(5000)
+                    .build();
                  var conn = db.connect()) {
                 try (var stmt = conn.prepare("SELECT id, content, created_at FROM notes ORDER BY id");
                      var rows = stmt.query()) {
@@ -40,6 +47,8 @@ public class LocalFileDatabase {
             }
         } finally {
             Files.deleteIfExists(dbPath);
+            Files.deleteIfExists(Path.of(dbPath + "-wal"));
+            Files.deleteIfExists(Path.of(dbPath + "-shm"));
         }
     }
 }
