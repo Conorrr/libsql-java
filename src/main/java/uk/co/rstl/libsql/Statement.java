@@ -40,18 +40,21 @@ public final class Statement implements AutoCloseable {
 
     // --- Positional binding ---
 
+    /** Bind an integer value to the next positional parameter. */
     public Statement bind(long value) {
         checkOpen();
         LibSql.bindValue(handle, LibSql.integer(value));
         return this;
     }
 
+    /** Bind a real (double) value to the next positional parameter. */
     public Statement bind(double value) {
         checkOpen();
         LibSql.bindValue(handle, LibSql.real(value));
         return this;
     }
 
+    /** Bind a text value to the next positional parameter (null binds SQL NULL). */
     public Statement bind(String value) {
         checkOpen();
         if (value == null) {
@@ -62,6 +65,7 @@ public final class Statement implements AutoCloseable {
         return this;
     }
 
+    /** Bind a blob value to the next positional parameter (null binds SQL NULL). */
     public Statement bind(byte[] value) {
         checkOpen();
         if (value == null) {
@@ -72,6 +76,7 @@ public final class Statement implements AutoCloseable {
         return this;
     }
 
+    /** Bind SQL NULL to the next positional parameter. */
     public Statement bindNull() {
         checkOpen();
         LibSql.bindValue(handle, LibSql.nullValue());
@@ -80,18 +85,21 @@ public final class Statement implements AutoCloseable {
 
     // --- Named binding ---
 
+    /** Bind an integer value to the named parameter {@code name}. */
     public Statement bind(String name, long value) {
         checkOpen();
         LibSql.bindNamed(arena, handle, name, LibSql.integer(value));
         return this;
     }
 
+    /** Bind a real (double) value to the named parameter {@code name}. */
     public Statement bind(String name, double value) {
         checkOpen();
         LibSql.bindNamed(arena, handle, name, LibSql.real(value));
         return this;
     }
 
+    /** Bind a text value to the named parameter {@code name} (null binds SQL NULL). */
     public Statement bind(String name, String value) {
         checkOpen();
         if (value == null) {
@@ -102,6 +110,7 @@ public final class Statement implements AutoCloseable {
         return this;
     }
 
+    /** Bind a blob value to the named parameter {@code name} (null binds SQL NULL). */
     public Statement bind(String name, byte[] value) {
         checkOpen();
         if (value == null) {
@@ -112,6 +121,7 @@ public final class Statement implements AutoCloseable {
         return this;
     }
 
+    /** Bind SQL NULL to the named parameter {@code name}. */
     public Statement bindNull(String name) {
         checkOpen();
         LibSql.bindNamed(arena, handle, name, LibSql.nullValue());
