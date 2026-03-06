@@ -23,6 +23,7 @@ public final class LibSqlLoader {
 
     private LibSqlLoader() {}
 
+    /** Return the shared {@link SymbolLookup} for the native library, loading it on first call. */
     public static SymbolLookup get() {
         if (lookup == null) {
             synchronized (LibSqlLoader.class) {

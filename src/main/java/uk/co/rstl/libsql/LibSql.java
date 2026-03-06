@@ -243,10 +243,15 @@ public final class LibSql {
             FunctionDescriptor.ofVoid(SLICE_LAYOUT));
 
     // --- Type constants (from libsql_type_t enum) ---
+    /** libsql type tag for 64-bit signed integer values. */
     public static final int TYPE_INTEGER = 1;
+    /** libsql type tag for 64-bit IEEE 754 floating-point values. */
     public static final int TYPE_REAL = 2;
+    /** libsql type tag for UTF-8 text values. */
     public static final int TYPE_TEXT = 3;
+    /** libsql type tag for binary blob values. */
     public static final int TYPE_BLOB = 4;
+    /** libsql type tag for SQL NULL. */
     public static final int TYPE_NULL = 5;
 
     private static final AtomicBoolean INITIALIZED = new AtomicBoolean(false);
@@ -288,6 +293,7 @@ public final class LibSql {
         }
     }
 
+    /** Open a database and return its native handle. Caller owns the returned segment. */
     public static MemorySegment databaseInit(Arena arena, String path, String url, String authToken, long syncInterval) {
         try {
             var desc = arena.allocate(DATABASE_DESC_LAYOUT);
@@ -316,6 +322,7 @@ public final class LibSql {
         }
     }
 
+    /** Sync a database with its remote (synced replicas only). */
     public static void databaseSync(MemorySegment db) {
         try {
             var result = (MemorySegment) DATABASE_SYNC.invokeExact((SegmentAllocator) Arena.ofAuto(), db);
@@ -330,6 +337,7 @@ public final class LibSql {
         }
     }
 
+    /** Create a new connection handle from a database handle. */
     public static MemorySegment databaseConnect(MemorySegment db) {
         try {
             var result = (MemorySegment) DATABASE_CONNECT.invokeExact((SegmentAllocator) Arena.ofAuto(), db);
@@ -342,6 +350,7 @@ public final class LibSql {
         }
     }
 
+    /** Begin a transaction on the given connection, returning a transaction handle. */
     public static MemorySegment connectionTransaction(MemorySegment conn) {
         try {
             var result = (MemorySegment) CONNECTION_TRANSACTION.invokeExact((SegmentAllocator) Arena.ofAuto(), conn);
@@ -354,6 +363,7 @@ public final class LibSql {
         }
     }
 
+    /** Execute a batch of SQL statements on a connection (no results returned). */
     public static void connectionBatch(Arena arena, MemorySegment conn, String sql) {
         try {
             var sqlSeg = arena.allocateFrom(sql);
@@ -366,6 +376,7 @@ public final class LibSql {
         }
     }
 
+    /** Execute a batch of SQL statements within a transaction (no results returned). */
     public static void transactionBatch(Arena arena, MemorySegment tx, String sql) {
         try {
             var sqlSeg = arena.allocateFrom(sql);
@@ -378,6 +389,7 @@ public final class LibSql {
         }
     }
 
+    /** Prepare a statement on a connection, returning a statement handle. */
     public static MemorySegment connectionPrepare(Arena arena, MemorySegment conn, String sql) {
         try {
             var sqlSeg = arena.allocateFrom(sql);
@@ -391,6 +403,7 @@ public final class LibSql {
         }
     }
 
+    /** Prepare a statement within a transaction, returning a statement handle. */
     public static MemorySegment transactionPrepare(Arena arena, MemorySegment tx, String sql) {
         try {
             var sqlSeg = arena.allocateFrom(sql);
@@ -404,6 +417,7 @@ public final class LibSql {
         }
     }
 
+    /** Execute a prepared statement (INSERT/UPDATE/DELETE). Returns rows changed. */
     public static long statementExecute(MemorySegment stmt) {
         try {
             var result = (MemorySegment) STATEMENT_EXECUTE.invokeExact((SegmentAllocator) Arena.ofAuto(), stmt);
@@ -419,6 +433,7 @@ public final class LibSql {
         }
     }
 
+    /** Execute a prepared statement as a query, returning a rows handle. */
     public static MemorySegment statementQuery(MemorySegment stmt) {
         try {
             var result = (MemorySegment) STATEMENT_QUERY.invokeExact((SegmentAllocator) Arena.ofAuto(), stmt);
@@ -431,6 +446,7 @@ public final class LibSql {
         }
     }
 
+    /** Reset a prepared statement for re-use with new bindings. */
     public static void statementReset(MemorySegment stmt) {
         try {
             STATEMENT_RESET.invokeExact(stmt);
@@ -439,6 +455,7 @@ public final class LibSql {
         }
     }
 
+    /** Bind a value to the next positional parameter of a statement. */
     public static void bindValue(MemorySegment stmt, MemorySegment value) {
         try {
             var result = (MemorySegment) STATEMENT_BIND_VALUE.invokeExact((SegmentAllocator) Arena.ofAuto(), stmt, value);
@@ -450,6 +467,7 @@ public final class LibSql {
         }
     }
 
+    /** Bind a value to a named parameter of a statement. */
     public static void bindNamed(Arena arena, MemorySegment stmt, String name, MemorySegment value) {
         try {
             var nameSeg = arena.allocateFrom(name);
@@ -464,6 +482,7 @@ public final class LibSql {
 
     // Value constructors
 
+    /** Create a libsql integer value. */
     public static MemorySegment integer(long v) {
         try {
             return (MemorySegment) VALUE_INTEGER.invokeExact((SegmentAllocator) Arena.ofAuto(), v);
@@ -472,6 +491,7 @@ public final class LibSql {
         }
     }
 
+    /** Create a libsql real (double) value. */
     public static MemorySegment real(double v) {
         try {
             return (MemorySegment) VALUE_REAL.invokeExact((SegmentAllocator) Arena.ofAuto(), v);
@@ -480,6 +500,7 @@ public final class LibSql {
         }
     }
 
+    /** Create a libsql text value from a Java string. */
     public static MemorySegment text(Arena arena, String v) {
         try {
             var seg = arena.allocateFrom(v); // null-terminated UTF-8
@@ -490,6 +511,7 @@ public final class LibSql {
         }
     }
 
+    /** Create a libsql blob value from a byte array. */
     public static MemorySegment blob(Arena arena, byte[] v) {
         try {
             var seg = arena.allocateFrom(JAVA_BYTE, v);
@@ -499,6 +521,7 @@ public final class LibSql {
         }
     }
 
+    /** Create a libsql NULL value. */
     public static MemorySegment nullValue() {
         try {
             return (MemorySegment) VALUE_NULL.invokeExact((SegmentAllocator) Arena.ofAuto());
@@ -509,6 +532,7 @@ public final class LibSql {
 
     // Row/Rows access
 
+    /** Advance to the next row in a result set. Use {@link #rowEmpty} to check for end. */
     public static MemorySegment rowsNext(MemorySegment rows) {
         try {
             var result = (MemorySegment) ROWS_NEXT.invokeExact((SegmentAllocator) Arena.ofAuto(), rows);
@@ -519,6 +543,7 @@ public final class LibSql {
         }
     }
 
+    /** Return true if the row handle represents an empty (end-of-results) sentinel. */
     public static boolean rowEmpty(MemorySegment row) {
         try {
             return (boolean) ROW_EMPTY.invokeExact(row);
@@ -527,6 +552,7 @@ public final class LibSql {
         }
     }
 
+    /** Return the number of columns in a result set. */
     public static int rowsColumnCount(MemorySegment rows) {
         try {
             return (int) ROWS_COLUMN_COUNT.invokeExact(rows);
@@ -535,6 +561,7 @@ public final class LibSql {
         }
     }
 
+    /** Return the column name at the given index in a result set. */
     public static String rowsColumnName(MemorySegment rows, int index) {
         try {
             var slice = (MemorySegment) ROWS_COLUMN_NAME.invokeExact((SegmentAllocator) Arena.ofAuto(), rows, index);
@@ -544,6 +571,7 @@ public final class LibSql {
         }
     }
 
+    /** Return the number of columns in a single row. */
     public static int rowLength(MemorySegment row) {
         try {
             return (int) ROW_LENGTH.invokeExact(row);
@@ -603,34 +631,42 @@ public final class LibSql {
 
     // Deinit wrappers
 
+    /** Free a database handle. */
     public static void databaseDeinit(MemorySegment db) {
         try { DATABASE_DEINIT.invokeExact(db); } catch (Throwable t) { throw new RuntimeException(t); }
     }
 
+    /** Free a connection handle. */
     public static void connectionDeinit(MemorySegment conn) {
         try { CONNECTION_DEINIT.invokeExact(conn); } catch (Throwable t) { throw new RuntimeException(t); }
     }
 
+    /** Free a statement handle. */
     public static void statementDeinit(MemorySegment stmt) {
         try { STATEMENT_DEINIT.invokeExact(stmt); } catch (Throwable t) { throw new RuntimeException(t); }
     }
 
+    /** Commit a transaction. */
     public static void transactionCommit(MemorySegment tx) {
         try { TRANSACTION_COMMIT.invokeExact(tx); } catch (Throwable t) { throw new RuntimeException(t); }
     }
 
+    /** Roll back a transaction. */
     public static void transactionRollback(MemorySegment tx) {
         try { TRANSACTION_ROLLBACK.invokeExact(tx); } catch (Throwable t) { throw new RuntimeException(t); }
     }
 
+    /** Free a rows result set handle. */
     public static void rowsDeinit(MemorySegment rows) {
         try { ROWS_DEINIT.invokeExact(rows); } catch (Throwable t) { throw new RuntimeException(t); }
     }
 
+    /** Free a single row handle. */
     public static void rowDeinit(MemorySegment row) {
         try { ROW_DEINIT.invokeExact(row); } catch (Throwable t) { throw new RuntimeException(t); }
     }
 
+    /** Free a native slice. */
     public static void sliceDeinit(MemorySegment slice) {
         try { SLICE_DEINIT.invokeExact(slice); } catch (Throwable t) { throw new RuntimeException(t); }
     }
