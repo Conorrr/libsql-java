@@ -18,6 +18,9 @@ jobs:
           - os: ubuntu-latest
             platform: linux-amd64
             lib: liblibsql.so
+          - os: ubuntu-24.04-arm
+            platform: linux-aarch64
+            lib: liblibsql.so
           - os: windows-latest
             platform: windows-amd64
             lib: libsql.dll
@@ -89,9 +92,10 @@ jobs:
       - name: Arrange native libs
         shell: bash
         run: |
-          mkdir -p native/darwin-aarch64 native/linux-amd64 native/windows-amd64
+          mkdir -p native/darwin-aarch64 native/linux-amd64 native/linux-aarch64 native/windows-amd64
           cp native-artifacts/native-darwin-aarch64/* native/darwin-aarch64/
           cp native-artifacts/native-linux-amd64/* native/linux-amd64/
+          cp native-artifacts/native-linux-aarch64/* native/linux-aarch64/
           cp native-artifacts/native-windows-amd64/* native/windows-amd64/
 
       - name: Setup Gradle
