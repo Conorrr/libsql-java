@@ -109,13 +109,19 @@ jobs:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Rename native libs for release
+        shell: bash
+        run: |
+          mkdir -p release-assets
+          cp native/darwin-aarch64/liblibsql.dylib release-assets/liblibsql-darwin-aarch64.dylib
+          cp native/linux-amd64/liblibsql.so release-assets/liblibsql-linux-amd64.so
+          cp native/linux-aarch64/liblibsql.so release-assets/liblibsql-linux-aarch64.so
+          cp native/windows-amd64/libsql.dll release-assets/libsql-windows-amd64.dll
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             build/libs/*.jar
-            native/darwin-aarch64/*
-            native/linux-amd64/*
-            native/linux-aarch64/*
-            native/windows-amd64/*
+            release-assets/*
           generate_release_notes: true
